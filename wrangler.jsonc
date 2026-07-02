@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "image-moderation-r2",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+
+  // Custom domain for the Worker itself (the UI + /api/process endpoint).
+  // custom_domain routes are provisioned automatically on deploy.
+  "routes": [
+    {
+      "pattern": "moderate.agreatorganization.com",
+      "custom_domain": true
+    }
+  ],
+
+  // Workers AI - used for NSFW / content moderation
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Cloudflare Images binding - used to generate the 4 transformations
+  "images": {
+    "binding": "IMAGES"
+  },
+
+  // R2 bucket where transformed images are stored
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "image-moderation-r2"
+    }
+  ],
+
+  // Static assets (the drag & drop UI)
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  "vars": {
+    // Public base URL of the R2 bucket's custom domain (no trailing slash).
+    // e.g. "https://cdn.example.com". Set your real domain before deploying.
+    "R2_PUBLIC_URL": "https://image-moderation-r2.agreatorganization.com",
+    // Workers AI vision model used for moderation.
+    "MODERATION_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct"
+  }
+}
