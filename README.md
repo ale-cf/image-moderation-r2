@@ -14,37 +14,28 @@ Cloudflare-native bindings.
 
 ## Architecture
 
-### System diagram
+### Flow 1 — Moderate & process (`POST /api/process`)
 
 ```mermaid
-flowchart TD
-    U["User's browser"]
-
-    subgraph CF["Cloudflare edge"]
-        subgraph W["Worker: image-moderation-r2 (src/index.ts)"]
-            ASSETS["Static Assets binding\nserves public/index.html"]
-            API["POST /api/process handler"]
-        end
-        AI["Workers AI\n@cf/llava-hf/llava-1.5-7b-hf"]
-        IMG["Images binding\nresize / blur / recolor"]
-        R2[("R2 bucket\nimage-moderation-r2")]
-        CDN["R2 custom domain\nimage-moderation-r2.agreatorganization.com"]
-    end
-
-    U -- "GET /" --> ASSETS
-    ASSETS -- "drag & drop UI" --> U
-    U -- "POST /api/process (multipart image)" --> API
-
-    API -- "1. bytes" --> AI
-    AI -- "RATING: SAFE | UNSAFE" --> API
-    API -- "2. if SAFE: bytes x4" --> IMG
-    IMG -- "transformed bytes" --> API
-    API -- "3. put(<id>/<variant>)" --> R2
-    API -- "4. JSON { variants: [urls] }" --> U
-
-    R2 --- CDN
-    U -- "5. GET <variant> image" --> CDN
+flowchart LR
+    U["Browser"] -- "upload image" --> API["Worker\n/api/process"]
+    API -- "1. moderate" --> AI["Workers AI\nvision model"]
+    API -- "2. if safe: transform x4" --> IMG["Images binding"]
+    API -- "3. store variants" --> R2[("R2 bucket")]
+    API -- "4. return variant URLs" --> U
 ```
+
+### Flow 2 — Serve variants (R2 custom domain)
+
+```mermaid
+flowchart LR
+    U["Browser"] -- "GET variant URL" --> CDN["R2 custom domain\n(CDN, edge-cached)"]
+    CDN -- "read object" --> R2[("R2 bucket")]
+    CDN -- "image bytes" --> U
+```
+
+The Worker is only in the **write** path (Flow 1). Finished images are served
+**directly** by R2's custom domain (Flow 2), so delivery doesn't hit the Worker.
 
 ### Request lifecycle
 
